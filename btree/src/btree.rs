@@ -4,7 +4,9 @@ use std::fmt;
 
 type Link = Option<Rc<RefCell<Node>>>;
 
-pub const BTREE_ORDER: usize = 3;
+pub const BTREE_ORDER: usize = 1;
+pub const NODE_CAPACITY: usize = 2*BTREE_ORDER - 1;
+pub const LEAF_MIN_CAPACITY: usize = BTREE_ORDER - 1;
 pub const ARRAY_DEFAULT_VALUE: Link = None;
 
 #[derive(Debug, Clone)]
@@ -21,8 +23,8 @@ pub struct Node {
     pub is_leaf: bool,
 
     pub n_keys: usize,
-    pub keys: [u8; BTREE_ORDER - 1],
-    pub pointers: [Link; BTREE_ORDER - 1],
+    pub keys: [u8; NODE_CAPACITY],
+    pub pointers: [Link; NODE_CAPACITY + 1],
 }
 
 impl fmt::Display for Node {
@@ -51,110 +53,8 @@ impl Node {
             node_type: NodeType::Leaf, 
 
             n_keys: 0,
-            keys: [0; BTREE_ORDER - 1],
-            pointers: [ARRAY_DEFAULT_VALUE; BTREE_ORDER - 1]
-        }
-    }
-
-    pub fn new_with_value(is_root: bool, is_leaf: bool, value: u8) -> Self {
-        let mut obj = Self { 
-            is_root, 
-            is_leaf,
-            node_type: NodeType::Leaf, 
-
-            n_keys: 0,
-            keys: [0; BTREE_ORDER - 1],
-            pointers: [ARRAY_DEFAULT_VALUE; BTREE_ORDER - 1]
-        };
-
-        obj.keys[0] = value;
-        obj.n_keys = 1;
-
-        obj
-    }
-
-    pub fn push(&mut self, value: u8) {
-        let mut i: usize = 0;
-        while i < self.n_keys && value > self.keys[i]  {
-            i += 1;
-        }
-
-        println!("value: {}; n_keys: {}; indice {}; {}", value, self.n_keys, i, BTREE_ORDER - 1 );
-
-        if (self.is_root || self.is_leaf) && (i < (BTREE_ORDER - 1)) {
-            println!("Inserting in leaf or root");
-            self.keys[i] = value;
-            self.n_keys += 1;
-            return
-        }
-
-        if self.is_leaf && i == BTREE_ORDER - 1 {
-            println!("Spliting in leaf");
-
-            // let mut new_node = Node::new(false, true, value);
-
-
-
-        } 
-
-        return 
-        if !self.is_leaf {
-            match &self.pointers[i] {
-                None => { 
-                    self.pointers[i] = Some(Rc::new(RefCell::new(Node::new(false, true))))
-                },
-                Some(node) => {
-                    let mut internal_node = node.borrow_mut();
-
-                    return internal_node.push(value)
-                }
-            }
-        } 
-    }
-
-    pub fn push_non_full(&mut self) {
-
-    }
-
-    pub fn split_node(&mut self, pos: usize, order: u8) {
-        match &self.pointers[pos] {
-            None => { },
-            Some(node) => {
-                let mut internal_node = node.borrow_mut();
-
-                let mut new_node = &mut Node::new(false, true);
-                new_node.n_keys = BTREE_ORDER - 1;
-
-                Node::_deslocate_keys_up(new_node, &internal_node, 0, BTREE_ORDER -1, 0, BTREE_ORDER );
-
-                if internal_node.is_leaf {
-                    Node::_deslocate_keys_up(new_node, &internal_node, 0, BTREE_ORDER, 0, BTREE_ORDER);
-                }
-                internal_node.n_keys = BTREE_ORDER - 1;
-
-                // self.pointers[pos+1] = Some(Rc::new(RefCell::new((*new_node).clone())));
-                
-                // Node::_deslocate_keys_down(&self, self, self.n_keys - 1, pos - 1, 1, 0);
-
-                self.keys[pos] = internal_node.keys[BTREE_ORDER - 1];
-                self.n_keys += 1;
-            }
-        }
-    }
-
-    pub fn _deslocate_keys_up(to: &mut Node, from: &Node, beg: usize, end: usize, padding_to: usize, padding_from: usize) {
-        let mut j: usize = beg;
-        while j < end {
-            to.keys[j + padding_to] = from.keys[j + padding_from];
-            j += 1;
-        }
-    }
-
-    pub fn _deslocate_keys_down(to: &mut Node, from: &Node, beg: usize, end: usize, padding_to: usize, padding_from: usize) {
-        let mut j: usize = beg;
-        while j > end {
-            to.keys[j + padding_to] = from.keys[j + padding_from];
-            j -= 1;
+            keys: [0; NODE_CAPACITY],
+            pointers: [ARRAY_DEFAULT_VALUE; NODE_CAPACITY + 1]
         }
     }
 
@@ -182,6 +82,77 @@ impl Node {
         }
     }
 
+    pub fn push_nonfull(&mut self, value: u8) {
+        let mut j: usize = self.n_keys;
+        if self.is_leaf {
+            while j >= 1 && j < (self.keys[j] as usize){
+                self.keys[j+1] = self.keys[j];
+                j -= 1;
+            }
+            self.keys[j+1] = value;
+            self.n_keys += 1;
+        } else {
+            while j >= 1 && j < (self.keys[j] as usize) {
+                j -= 1;
+            }
+            j += 1;
+            if let Some(node) = &self.pointers[j] {
+                let mut internal_node = node.borrow_mut();
+
+                if internal_node.n_keys == NODE_CAPACITY {
+                    self.split_node(j);
+                    if value > self.keys[j] {
+                        j += 1;
+                    }
+                }
+                internal_node.push_nonfull(value);
+            }
+        }
+    }
+
+    pub fn split_node(&mut self, pos: usize) {
+        if let Some(node) = &self.pointers[pos] {
+            let mut internal_node = node.borrow_mut();
+            let new_node = &mut Node::new(false, true);
+
+            new_node.is_leaf =  internal_node.is_leaf;
+            new_node.n_keys = LEAF_MIN_CAPACITY;
+
+            let mut j = 0;
+            while j < LEAF_MIN_CAPACITY {
+                new_node.keys[j] = internal_node.keys[j + LEAF_MIN_CAPACITY];
+                j += 1;
+            }
+
+            if !internal_node.is_leaf {
+                j = 0;
+                while j < BTREE_ORDER {
+                    new_node.pointers[j] = internal_node.pointers[j + LEAF_MIN_CAPACITY];
+                    j += 1;
+                }
+            }
+
+            internal_node.n_keys = LEAF_MIN_CAPACITY;
+
+            j = self.n_keys + 1;
+            while j > pos + 1 {
+                self.pointers[j+1] = self.pointers[j];
+                j -= 1;
+            }
+
+            self.pointers[pos + 1] = Some(Rc::new(RefCell::new(new_node)));
+
+            j = self.n_keys;
+            while j > pos {
+                self.keys[j+1] = self.keys[j];
+                j -= 1;
+            }
+
+            self.keys[pos] = internal_node.keys[LEAF_MIN_CAPACITY];
+
+            self.n_keys += 1;
+        }
+    }
 
 }
 
@@ -198,12 +169,22 @@ impl Btree {
     pub fn push(&mut self, value: u8) {
         match &self.root {
             None => {
-                self.root = Some(Rc::new(RefCell::new(Node::new_with_value(true, true, value))))
+                let mut new_node = Node::new(true, true);
+                new_node.push_nonfull(value);
+                self.root = Some(Rc::new(RefCell::new(new_node)))
             },
             Some(node) => {
                 let mut internal_node = node.borrow_mut();
-
-                internal_node.push(value);
+                
+                if internal_node.n_keys == NODE_CAPACITY {
+                    let mut new_node = Node::new(true, false);
+                    self.root = Some(Rc::new(RefCell::new(new_node)));
+                    new_node.pointers[0] = Some(Rc::new(RefCell::new(internal_node.clone())));
+                    new_node.split_node(1);
+                    new_node.push_nonfull(value);
+                } else {
+                    internal_node.push_nonfull(value);
+                }
             }
         }
     }
