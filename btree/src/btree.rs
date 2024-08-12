@@ -1,24 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, cell::RefMut};
 
 use std::fmt;
 
-type Link = Option<Rc<RefCell<Node>>>;
-
-pub const BTREE_ORDER: usize = 1;
+pub const BTREE_ORDER: usize = 2;
 pub const NODE_CAPACITY: usize = 2*BTREE_ORDER - 1;
 pub const LEAF_MIN_CAPACITY: usize = BTREE_ORDER - 1;
 pub const ARRAY_DEFAULT_VALUE: Link = None;
 
-#[derive(Debug, Clone)]
-pub enum NodeType {
-    Internal,
-    Leaf, 
-    Unexpected
-}
+type Link = Option<Rc<RefCell<Node>>>;
 
 #[derive(Debug, Clone)]
 pub struct Node { 
-    pub node_type: NodeType,
     pub is_root: bool,
     pub is_leaf: bool,
 
@@ -50,7 +42,6 @@ impl Node {
         Self { 
             is_root, 
             is_leaf,
-            node_type: NodeType::Leaf, 
 
             n_keys: 0,
             keys: [0; NODE_CAPACITY],
@@ -72,24 +63,25 @@ impl Node {
             return false
         }
 
-        match &self.pointers[i] {
-            None => false,
-            Some(node) => {
-                let mut internal_node = node.borrow_mut();
+        if let Some(node) = &self.pointers[i] {
+            let mut internal_node = node.as_ref().borrow_mut();
 
-                return internal_node.find(value)
-            }
+            return internal_node.find(value)
         }
+
+        return false;
     }
 
     pub fn push_nonfull(&mut self, value: u8) {
         let mut j: usize = self.n_keys;
+        println!("Inserting nonfull {} ", j);
+
         if self.is_leaf {
-            while j >= 1 && j < (self.keys[j] as usize){
+            while j >= 0 && j < (self.keys[j] as usize){
                 self.keys[j+1] = self.keys[j];
                 j -= 1;
             }
-            self.keys[j+1] = value;
+            self.keys[j] = value;
             self.n_keys += 1;
         } else {
             while j >= 1 && j < (self.keys[j] as usize) {
@@ -97,7 +89,7 @@ impl Node {
             }
             j += 1;
             if let Some(node) = &self.pointers[j] {
-                let mut internal_node = node.borrow_mut();
+                let mut internal_node = node.as_ref().borrow_mut();
 
                 if internal_node.n_keys == NODE_CAPACITY {
                     self.split_node(j);
@@ -112,10 +104,12 @@ impl Node {
 
     pub fn split_node(&mut self, pos: usize) {
         if let Some(node) = &self.pointers[pos] {
-            let mut internal_node = node.borrow_mut();
+            println!("Spliting node");
+
+            let mut internal_node = node.as_ref().borrow_mut();
             let new_node = &mut Node::new(false, true);
 
-            new_node.is_leaf =  internal_node.is_leaf;
+            new_node.is_leaf = internal_node.is_leaf;
             new_node.n_keys = LEAF_MIN_CAPACITY;
 
             let mut j = 0;
@@ -127,7 +121,7 @@ impl Node {
             if !internal_node.is_leaf {
                 j = 0;
                 while j < BTREE_ORDER {
-                    new_node.pointers[j] = internal_node.pointers[j + LEAF_MIN_CAPACITY];
+                    // new_node.pointers[j] = internal_node.pointers[j + LEAF_MIN_CAPACITY];
                     j += 1;
                 }
             }
@@ -136,11 +130,11 @@ impl Node {
 
             j = self.n_keys + 1;
             while j > pos + 1 {
-                self.pointers[j+1] = self.pointers[j];
+                //self.pointers[j+1] = self.pointers[j];
                 j -= 1;
             }
 
-            self.pointers[pos + 1] = Some(Rc::new(RefCell::new(new_node)));
+            // self.pointers[pos + 1] = Some(Rc::new(RefCell::new(new_node)));
 
             j = self.n_keys;
             while j > pos {
@@ -174,11 +168,10 @@ impl Btree {
                 self.root = Some(Rc::new(RefCell::new(new_node)))
             },
             Some(node) => {
-                let mut internal_node = node.borrow_mut();
+                let mut internal_node = node.as_ref().borrow_mut();
                 
                 if internal_node.n_keys == NODE_CAPACITY {
                     let mut new_node = Node::new(true, false);
-                    self.root = Some(Rc::new(RefCell::new(new_node)));
                     new_node.pointers[0] = Some(Rc::new(RefCell::new(internal_node.clone())));
                     new_node.split_node(1);
                     new_node.push_nonfull(value);
@@ -190,16 +183,14 @@ impl Btree {
     }
 
     pub fn find(&mut self, value: u8) -> bool {
-        match &self.root {
-            None => false,
-            Some(node) => {
-                let mut internal_node = node.borrow_mut();
+        if let Some(node) = &self.root {
+            let mut internal_node = node.borrow_mut();
 
-                return internal_node.find(value)
-            }
+            return internal_node.find(value)
         }
-    }
 
+        return false;
+    }
 
     pub fn print_tree(&self) {
 //        let mut queue: VecDeque<Node> = VecDeque::new();
@@ -231,7 +222,7 @@ pub mod tests {
     use super::*;
 
     #[test]
-    fn insert_1() {
+    fn insert_1_only() {
         let mut queue = Btree::new();
 
         queue.push(1);
@@ -270,5 +261,29 @@ pub mod tests {
         assert_eq!(queue.find(5), true);
         assert_eq!(queue.find(6), false);
         assert_eq!(queue.find(9), false);
+    }
+
+    #[test]
+    fn insert_1_to_10() {
+        let mut queue = Btree::new();
+
+        queue.push(1);
+        queue.push(2);
+        queue.push(3);
+        queue.push(4);
+        queue.push(5);
+        queue.push(6);
+        queue.push(7);
+        queue.push(8);
+        queue.push(9);
+        queue.push(10);
+
+        assert_eq!(queue.find(1), true);
+        assert_eq!(queue.find(2), true);
+        assert_eq!(queue.find(3), true);
+        assert_eq!(queue.find(5), true);
+        assert_eq!(queue.find(6), true);
+        assert_eq!(queue.find(9), true);
+        assert_eq!(queue.find(11), false);
     }
 }
