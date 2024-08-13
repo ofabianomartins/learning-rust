@@ -55,8 +55,6 @@ impl Node {
             i += 1;
         }
 
-        println!("Searching {} in level {}", value, level);
-
         if i < self.n_keys && value == self.keys[i]  {
             return true
         } 
@@ -71,6 +69,10 @@ impl Node {
             return internal_node.find(value, level + 1)
         }
 
+        return false;
+    }
+
+    pub fn remove(&mut self, value: u8, level: u8) -> bool {
         return false;
     }
 
@@ -108,8 +110,6 @@ impl Node {
             if let Some(node) = &self.pointers[j] {
                 let mut internal_node = node.as_ref().borrow_mut();
 
-                println!("{}", internal_node);
-
                 internal_node.push_nonfull(value);
             }
         }
@@ -119,8 +119,6 @@ impl Node {
         let new_node = &mut Node::new(false, true);
 
         if let Some(node) = &self.pointers[pos] {
-            println!("Spliting node");
-
             let mut internal_node = node.as_ref().borrow_mut();
 
             new_node.is_leaf = internal_node.is_leaf;
@@ -213,6 +211,10 @@ impl Btree {
         return false;
     }
 
+    pub fn remove(&mut self, value: u8) -> bool {
+        return false;
+    }
+
     pub fn print_tree(&self) {
         if let Some(node) = &self.root {
             let internal_node = node.as_ref().borrow_mut();
@@ -285,9 +287,7 @@ pub mod tests {
         queue.push(2);
         queue.push(3);
         queue.push(4);
-        queue.print_tree();
         queue.push(5);
-        queue.print_tree();
         queue.push(6);
         queue.push(7);
         queue.push(8);
@@ -299,6 +299,46 @@ pub mod tests {
         assert_eq!(queue.find(3), true);
         assert_eq!(queue.find(5), true);
         assert_eq!(queue.find(6), true);
+        assert_eq!(queue.find(9), true);
+        assert_eq!(queue.find(11), false);
+    }
+
+    #[test]
+    fn insert_1_to_10_to_remove() {
+        let mut queue = Btree::new();
+
+        queue.push(1);
+        queue.print_tree();
+        queue.push(2);
+        queue.print_tree();
+        queue.push(3);
+        queue.print_tree();
+        queue.push(4);
+        queue.print_tree();
+        queue.push(5);
+        queue.print_tree();
+        queue.push(6);
+        queue.print_tree();
+        queue.push(7);
+        queue.print_tree();
+        queue.push(8);
+        queue.print_tree();
+        queue.push(9);
+        queue.print_tree();
+        queue.push(10);
+
+        queue.remove(2);
+        queue.remove(3);
+        queue.remove(4);
+        queue.remove(5);
+        queue.remove(6);
+        queue.remove(7);
+
+        assert_eq!(queue.find(1), true);
+        assert_eq!(queue.find(2), false);
+        assert_eq!(queue.find(3), false);
+        assert_eq!(queue.find(5), false);
+        assert_eq!(queue.find(6), false);
         assert_eq!(queue.find(9), true);
         assert_eq!(queue.find(11), false);
     }
