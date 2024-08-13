@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, cell::RefMut};
+use std::{cell::RefCell, rc::Rc};
 
 use std::fmt;
 
@@ -21,15 +21,15 @@ pub struct Node {
 
 impl fmt::Display for Node {
      fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(");
+        let _ = write!(f, "(");
         let mut i: usize = 0;
 
         while i < self.n_keys {
-            write!(f, "{}", self.keys[i]);
+            let _ = write!(f, "{}", self.keys[i]);
             i += 1;
 
-            if i != self.n_keys - 1 {
-                write!(f, ", ");
+            if i < self.n_keys {
+                let _ = write!(f, ", ");
             }
         }
 
@@ -49,11 +49,13 @@ impl Node {
         }
     }
 
-    pub fn find(&mut self, value: u8) -> bool {
+    pub fn find(&mut self, value: u8, level: u8) -> bool {
         let mut i: usize = 0;
         while i < self.n_keys && value > self.keys[i]  {
             i += 1;
         }
+
+        println!("Searching {} in level {}", value, level);
 
         if i < self.n_keys && value == self.keys[i]  {
             return true
@@ -66,7 +68,7 @@ impl Node {
         if let Some(node) = &self.pointers[i] {
             let mut internal_node = node.as_ref().borrow_mut();
 
-            return internal_node.find(value)
+            return internal_node.find(value, level + 1)
         }
 
         return false;
@@ -74,67 +76,87 @@ impl Node {
 
     pub fn push_nonfull(&mut self, value: u8) {
         let mut j: usize = self.n_keys;
-        println!("Inserting nonfull {} ", j);
 
         if self.is_leaf {
-            while j >= 0 && j < (self.keys[j] as usize){
+            while value < self.keys[j] {
                 self.keys[j+1] = self.keys[j];
                 j -= 1;
             }
             self.keys[j] = value;
             self.n_keys += 1;
         } else {
-            while j >= 1 && j < (self.keys[j] as usize) {
+            while value < self.keys[j] {
                 j -= 1;
             }
-            j += 1;
+            // j += 1;
+
+            let mut n_keys: usize = 0;
+            if let Some(node) = &self.pointers[j] {
+                let internal_node = node.as_ref().borrow_mut();
+
+                n_keys = internal_node.n_keys;
+            }
+
+
+            if n_keys == NODE_CAPACITY {
+                self.split_node(j);
+                if value > self.keys[j] {
+                    j += 1;
+                }
+            }
+
             if let Some(node) = &self.pointers[j] {
                 let mut internal_node = node.as_ref().borrow_mut();
 
-                if internal_node.n_keys == NODE_CAPACITY {
-                    self.split_node(j);
-                    if value > self.keys[j] {
-                        j += 1;
-                    }
-                }
+                println!("{}", internal_node);
+
                 internal_node.push_nonfull(value);
             }
         }
     }
 
     pub fn split_node(&mut self, pos: usize) {
+        let new_node = &mut Node::new(false, true);
+
         if let Some(node) = &self.pointers[pos] {
             println!("Spliting node");
 
             let mut internal_node = node.as_ref().borrow_mut();
-            let new_node = &mut Node::new(false, true);
 
             new_node.is_leaf = internal_node.is_leaf;
             new_node.n_keys = LEAF_MIN_CAPACITY;
 
-            let mut j = 0;
+            let mut j: usize = 0;
             while j < LEAF_MIN_CAPACITY {
-                new_node.keys[j] = internal_node.keys[j + LEAF_MIN_CAPACITY];
+                new_node.keys[j] = internal_node.keys[j + LEAF_MIN_CAPACITY + 1];
                 j += 1;
             }
 
             if !internal_node.is_leaf {
                 j = 0;
                 while j < BTREE_ORDER {
-                    // new_node.pointers[j] = internal_node.pointers[j + LEAF_MIN_CAPACITY];
+                    if let Some(pointer_new_node) = &internal_node.pointers[j + LEAF_MIN_CAPACITY + 1] {
+                        new_node.pointers[j] = Some(pointer_new_node.clone());
+                    }
                     j += 1;
                 }
             }
 
             internal_node.n_keys = LEAF_MIN_CAPACITY;
+        }
 
-            j = self.n_keys + 1;
-            while j > pos + 1 {
-                //self.pointers[j+1] = self.pointers[j];
-                j -= 1;
+        let mut j: usize = self.n_keys + 1;
+        while j > pos + 1 {
+            if let Some(pointer_new_node) = &self.pointers[j] {
+                self.pointers[j + 1] = Some(pointer_new_node.clone());
             }
+            j -= 1;
+        }
 
-            // self.pointers[pos + 1] = Some(Rc::new(RefCell::new(new_node)));
+        self.pointers[pos + 1] = Some(Rc::new(RefCell::new(new_node.clone())));
+
+        if let Some(node) = &self.pointers[pos] {
+            let internal_node = node.as_ref().borrow_mut();
 
             j = self.n_keys;
             while j > pos {
@@ -142,10 +164,9 @@ impl Node {
                 j -= 1;
             }
 
-            self.keys[pos] = internal_node.keys[LEAF_MIN_CAPACITY];
-
-            self.n_keys += 1;
+            self.keys[pos] = internal_node.keys[LEAF_MIN_CAPACITY].clone();
         }
+        self.n_keys += 1;
     }
 
 }
@@ -161,24 +182,24 @@ impl Btree {
     }
 
     pub fn push(&mut self, value: u8) {
-        match &self.root {
-            None => {
-                let mut new_node = Node::new(true, true);
-                new_node.push_nonfull(value);
-                self.root = Some(Rc::new(RefCell::new(new_node)))
-            },
-            Some(node) => {
-                let mut internal_node = node.as_ref().borrow_mut();
-                
-                if internal_node.n_keys == NODE_CAPACITY {
-                    let mut new_node = Node::new(true, false);
-                    new_node.pointers[0] = Some(Rc::new(RefCell::new(internal_node.clone())));
-                    new_node.split_node(1);
-                    new_node.push_nonfull(value);
-                } else {
-                    internal_node.push_nonfull(value);
-                }
+        println!("Inserting {}", value);
+
+        if let Some(node) = &mut self.root {
+            let mut internal_node = node.as_ref().borrow_mut();
+            
+            if internal_node.n_keys == NODE_CAPACITY {
+                let mut new_node = Node::new(true, false);
+                new_node.pointers[0] = Some(Rc::new(RefCell::new(internal_node.clone())));
+                new_node.split_node(0);
+                *internal_node = new_node.clone();
+                internal_node.push_nonfull(value);
+            } else {
+                internal_node.push_nonfull(value);
             }
+        } else {
+            let mut new_node = Node::new(true, true);
+            new_node.push_nonfull(value);
+            self.root = Some(Rc::new(RefCell::new(new_node)))
         }
     }
 
@@ -186,34 +207,27 @@ impl Btree {
         if let Some(node) = &self.root {
             let mut internal_node = node.borrow_mut();
 
-            return internal_node.find(value)
+            return internal_node.find(value, 0)
         }
 
         return false;
     }
 
     pub fn print_tree(&self) {
-//        let mut queue: VecDeque<Node> = VecDeque::new();
-//        match &self.root {
-//            None => { println!("Empty tree"); } ,
-//            Some(node) => {
-//                let mut internal_node = node.borrow_mut();
-//
-//                queue.push_back(internal_node);
-//            }
-//        }
-//
-//        while(!queue.is_empty()) {
-//            let actual = queue.pop_front().unwrap();
-//
-//            let i:usize = 0;
-//            while( i < actual.n_keys ) {
-//                if let Some(mut node) = &self.pointers[i] {
-//
-//                    queue.push_back(node.borrow_mut());
-//                }
-//            }
-//        }
+        if let Some(node) = &self.root {
+            let internal_node = node.as_ref().borrow_mut();
+            print!("{}|", internal_node);
+
+            let mut j = 0;
+            while j <= internal_node.n_keys {
+                if let Some(other_node) = &internal_node.pointers[j] {
+                    let aux = other_node.as_ref().borrow();
+                    print!("{}|", aux);
+                }
+                j += 1;
+            }
+            println!("end");
+        } 
     }
 }
 
@@ -271,7 +285,9 @@ pub mod tests {
         queue.push(2);
         queue.push(3);
         queue.push(4);
+        queue.print_tree();
         queue.push(5);
+        queue.print_tree();
         queue.push(6);
         queue.push(7);
         queue.push(8);
