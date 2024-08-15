@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::node::Node;
@@ -48,24 +49,35 @@ impl Btree {
     }
 
     pub fn remove(&mut self, value: u8) -> bool {
+        if let Some(node) = &self.root {
+            let mut internal_node = node.borrow_mut();
+
+            return internal_node.remove(value, 0)
+        }
+
         return false;
     }
 
     pub fn print_tree(&self) {
-        if let Some(node) = &self.root {
-            let internal_node = node.as_ref().borrow_mut();
-            print!("{}|", internal_node);
+        let mut queue: VecDeque<Link> = VecDeque::new();
 
-            let mut j = 0;
-            while j <= internal_node.n_keys {
-                if let Some(other_node) = &internal_node.pointers[j] {
-                    let aux = other_node.as_ref().borrow();
-                    print!("{}|", aux);
+        queue.push_back(self.root.clone());
+        while !queue.is_empty() {
+            if let Some(node) = &queue.pop_front() {
+                let actual_node = node.as_ref().expect("REASON").borrow_mut();
+
+                let mut j = 0;
+                while j <= actual_node.n_keys {
+                    if let Some(new_pointer_node) = &actual_node.pointers[j] {
+                        queue.push_back(Some(new_pointer_node.clone())); 
+                    } 
+                    j += 1;
                 }
-                j += 1;
-            }
-            println!("end");
-        } 
+                print!("{}|", actual_node);
+            } 
+        }
+
+        println!("end");
     }
 }
 
@@ -144,10 +156,71 @@ pub mod tests {
         let mut queue = Btree::new();
 
         queue.push(1);
-        queue.print_tree();
         queue.push(2);
+        queue.push(3);
+        queue.push(4);
+        queue.push(5);
+        queue.push(6);
+        queue.push(7);
+        queue.push(8);
+        queue.push(9);
+        queue.push(10);
+        queue.print_tree();
+
+        queue.remove(2);
+        queue.print_tree();
+        queue.remove(5);
+        queue.print_tree();
+        queue.remove(7);
+        queue.print_tree();
+
+        assert_eq!(queue.find(1), true);
+        assert_eq!(queue.find(5), false);
+        assert_eq!(queue.find(7), false);
+        assert_eq!(queue.find(11), false);
+    }
+
+    #[test]
+    fn insert_1_to_10_to_remove_internal() {
+        let mut queue = Btree::new();
+
+        queue.push(1);
+        queue.push(2);
+        queue.push(3);
+        queue.push(4);
+        queue.push(5);
+        queue.push(6);
+        queue.push(7);
+        queue.push(8);
+        queue.push(9);
+        queue.push(10);
+        queue.print_tree();
+
+        queue.remove(8);
+        queue.print_tree();
+        queue.remove(10);
+        queue.print_tree();
+
+        assert_eq!(queue.find(1), true);
+        assert_eq!(queue.find(8), false);
+        assert_eq!(queue.find(10), false);
+        assert_eq!(queue.find(11), false);
+    }
+
+    #[test]
+    fn insert_1_to_10_and_remove_2() {
+        let mut queue = Btree::new();
+
+
+        queue.push(14);
         queue.print_tree();
         queue.push(3);
+        queue.print_tree();
+        queue.push(18);
+        queue.print_tree();
+        queue.push(1);
+        queue.print_tree();
+        queue.push(2);
         queue.print_tree();
         queue.push(4);
         queue.print_tree();
@@ -162,20 +235,13 @@ pub mod tests {
         queue.push(9);
         queue.print_tree();
         queue.push(10);
+        queue.print_tree();
 
         queue.remove(2);
-        queue.remove(3);
-        queue.remove(4);
-        queue.remove(5);
-        queue.remove(6);
-        queue.remove(7);
+        queue.print_tree();
 
         assert_eq!(queue.find(1), true);
+        assert_eq!(queue.find(10), true);
         assert_eq!(queue.find(2), false);
-        assert_eq!(queue.find(3), false);
-        assert_eq!(queue.find(5), false);
-        assert_eq!(queue.find(6), false);
-        assert_eq!(queue.find(9), true);
-        assert_eq!(queue.find(11), false);
     }
 }

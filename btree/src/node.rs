@@ -72,22 +72,124 @@ impl Node {
         return false;
     }
 
+    pub fn find_previous(&mut self, value: u8, level: u8) -> u8 {
+        let mut i: usize = 0;
+        while i < self.n_keys && value > self.keys[i]  {
+            i += 1;
+        }
+
+        println!("Find previous {} level {}", value, level);
+
+        if i == self.n_keys && self.is_leaf {
+            let aux = self.keys[self.n_keys - 1];
+            self.remove(aux, level);
+            return aux;
+        } 
+
+        if let Some(node) = &self.pointers[i] {
+            let mut internal_node = node.as_ref().borrow_mut();
+
+            return internal_node.find_previous(value, level + 1);
+        }
+
+        return 0;
+    }
+
+    pub fn find_next(&mut self, value: u8, level: u8) -> u8 {
+        let mut i: usize = 0;
+        while i < self.n_keys && value > self.keys[i]  {
+            i += 1;
+        }
+
+        println!("Find next {} level {}", value, level);
+
+        if i == 0 && self.is_leaf {
+            let aux = self.keys[0];
+            self.remove(aux, level);
+            return aux;
+        } 
+
+        if let Some(node) = &self.pointers[i] {
+            let mut internal_node = node.as_ref().borrow_mut();
+
+            return internal_node.find_next(value, level + 1);
+        }
+
+        return 0;
+    }
+
     pub fn remove(&mut self, value: u8, level: u8) -> bool {
+        let mut i: usize = 0;
+
+        println!("Remove {} level {}", value, level);
+        while i < self.n_keys && value > self.keys[i]  {
+            i += 1;
+        }
+
+        println!("key {} n_keys {}", i, self.n_keys);
+
+        if i < self.n_keys && value == self.keys[i] && self.is_leaf {
+            println!("leaf node");
+            while i < self.n_keys {
+                self.keys[i] = self.keys[i + 1];
+                i += 1;
+            }
+            self.n_keys -= 1;
+            return true;
+        } 
+
+        if i < self.n_keys && value == self.keys[i] && !self.is_leaf {
+            println!("Internal node");
+            if let Some(node) = &self.pointers[i] {
+                let mut left_child = node.as_ref().borrow_mut();
+
+                println!("Internal node left child {} {}", left_child.n_keys, BTREE_ORDER );
+
+                if left_child.n_keys >= BTREE_ORDER {
+                    let new_value: u8 = left_child.find_previous(value, level + 1);
+
+                    self.keys[i] = new_value;
+                    return true;
+                }
+            }
+
+            if let Some(node) = &self.pointers[i + 1] {
+                let mut right_child = node.as_ref().borrow_mut();
+
+                println!("Internal node right child {} {}", right_child.n_keys, BTREE_ORDER );
+
+                if right_child.n_keys >= BTREE_ORDER {
+                    let new_value: u8 = right_child.find_next(value, level + 1);
+
+                    self.keys[i] = new_value;
+                    return true;
+                }
+            }
+        } 
+
+        if value != self.keys[i] {
+            if let Some(node) = &self.pointers[i] {
+                let mut internal_node = node.as_ref().borrow_mut();
+
+                return internal_node.remove(value, level + 1);
+            }
+        } 
+
         return false;
     }
 
     pub fn push_nonfull(&mut self, value: u8) {
-        let mut j: usize = self.n_keys;
-
         if self.is_leaf {
-            while value < self.keys[j] {
-                self.keys[j+1] = self.keys[j];
+            let mut j: usize = self.n_keys;
+            while j > 0  && value < self.keys[j - 1] {
+                self.keys[j] = self.keys[j - 1];
                 j -= 1;
             }
             self.keys[j] = value;
             self.n_keys += 1;
         } else {
-            while value < self.keys[j] {
+            let mut j: usize = self.n_keys;
+            while j > 0  && value < self.keys[j - 1] {
                 j -= 1;
             }
             // j += 1;
@@ -126,14 +228,14 @@ impl Node {
 
             let mut j: usize = 0;
             while j < LEAF_MIN_CAPACITY {
-                new_node.keys[j] = internal_node.keys[j + LEAF_MIN_CAPACITY + 1];
+                new_node.keys[j] = internal_node.keys[j + BTREE_ORDER];
                 j += 1;
             }
 
             if !internal_node.is_leaf {
                 j = 0;
                 while j < BTREE_ORDER {
-                    if let Some(pointer_new_node) = &internal_node.pointers[j + LEAF_MIN_CAPACITY + 1] {
+                    if let Some(pointer_new_node) = &internal_node.pointers[j + BTREE_ORDER] {
                         new_node.pointers[j] = Some(pointer_new_node.clone());
                     }
                     j += 1;
@@ -145,8 +247,8 @@ impl Node {
 
         let mut j: usize = self.n_keys + 1;
         while j > pos + 1 {
-            if let Some(pointer_new_node) = &self.pointers[j] {
-                self.pointers[j + 1] = Some(pointer_new_node.clone());
+            if let Some(pointer_new_node) = &self.pointers[j - 1] {
+                self.pointers[j] = Some(pointer_new_node.clone());
             }
             j -= 1;
         }
@@ -158,7 +260,7 @@ impl Node {
 
             j = self.n_keys;
             while j > pos {
-                self.keys[j+1] = self.keys[j];
+                self.keys[j] = self.keys[j - 1];
                 j -= 1;
             }
 
