@@ -49,6 +49,8 @@ impl Btree {
     }
 
     pub fn remove(&mut self, value: u8) -> bool {
+        println!("Removing {}", value);
+
         if let Some(node) = &self.root {
             let mut internal_node = node.borrow_mut();
 
@@ -208,40 +210,69 @@ pub mod tests {
     }
 
     #[test]
-    fn insert_1_to_10_and_remove_2() {
+    fn insert_1_to_10_and_remove_38() {
         let mut queue = Btree::new();
 
+        let mut j = 26;
 
-        queue.push(14);
-        queue.print_tree();
-        queue.push(3);
-        queue.print_tree();
-        queue.push(18);
-        queue.print_tree();
-        queue.push(1);
-        queue.print_tree();
-        queue.push(2);
-        queue.print_tree();
-        queue.push(4);
-        queue.print_tree();
-        queue.push(5);
-        queue.print_tree();
-        queue.push(6);
-        queue.print_tree();
-        queue.push(7);
-        queue.print_tree();
-        queue.push(8);
-        queue.print_tree();
-        queue.push(9);
-        queue.print_tree();
-        queue.push(10);
+        while j > 14 {
+            queue.push(j*2);
+            j -= 1;
+        }
         queue.print_tree();
 
-        queue.remove(2);
+        queue.remove(38);
         queue.print_tree();
 
-        assert_eq!(queue.find(1), true);
-        assert_eq!(queue.find(10), true);
-        assert_eq!(queue.find(2), false);
+        assert_eq!(queue.find(46), true);
+        assert_eq!(queue.find(34), true);
+        assert_eq!(queue.find(42), true);
+        assert_eq!(queue.find(36), true);
+        assert_eq!(queue.find(40), true);
+        assert_eq!(queue.find(38), false);
+    }
+
+    #[test]
+    fn insert_1_to_26_and_remove_22() {
+        let mut queue = Btree::new();
+
+        let mut j = 26;
+
+        while j > 0 {
+            queue.push(j);
+            j -= 1;
+        }
+        queue.print_tree();
+
+        queue.remove(22);
+        queue.print_tree();
+
+        assert_eq!(queue.find(26), true);
+        assert_eq!(queue.find(22), false);
+    }
+
+    #[test]
+    fn insert_1_to_10_and_remove_32() {
+        let mut queue = Btree::new();
+
+        let mut j = 26;
+
+        while j > 0 {
+            queue.push(j*2);
+            j -= 1;
+        }
+
+        queue.push(23);
+        queue.print_tree();
+
+        queue.remove(32);
+        queue.print_tree();
+
+        assert_eq!(queue.find(46), true);
+        assert_eq!(queue.find(34), true);
+        assert_eq!(queue.find(42), true);
+        assert_eq!(queue.find(36), true);
+        assert_eq!(queue.find(40), true);
+        assert_eq!(queue.find(32), false);
     }
 }
