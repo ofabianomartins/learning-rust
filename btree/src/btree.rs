@@ -54,7 +54,7 @@ impl Btree {
         if let Some(node) = &self.root {
             let mut internal_node = node.borrow_mut();
 
-            return internal_node.remove(value, 0)
+            return internal_node.remove(value)
         }
 
         return false;
@@ -150,26 +150,12 @@ pub mod tests {
     fn insert_1_to_10() {
         let mut queue = Btree::new();
 
-        queue.push(1);
-        assert!(queue.is_correct());
-        queue.push(2);
-        assert!(queue.is_correct());
-        queue.push(3);
-        assert!(queue.is_correct());
-        queue.push(4);
-        assert!(queue.is_correct());
-        queue.push(5);
-        assert!(queue.is_correct());
-        queue.push(6);
-        assert!(queue.is_correct());
-        queue.push(7);
-        assert!(queue.is_correct());
-        queue.push(8);
-        assert!(queue.is_correct());
-        queue.push(9);
-        assert!(queue.is_correct());
-        queue.push(10);
-        assert!(queue.is_correct());
+        let mut j: u8 = 1;
+        while j < 11 {
+            queue.push(j);
+            assert!(queue.is_correct());
+            j += 1;
+        }
 
         assert_eq!(queue.find(1), true);
         assert_eq!(queue.find(2), true);
@@ -181,71 +167,60 @@ pub mod tests {
     }
 
     #[test]
-    fn insert_1_to_10_to_remove() {
+    fn insert_1_to_10_to_remove2() {
         let mut queue = Btree::new();
 
-        queue.push(1);
-        assert!(queue.is_correct());
-        queue.push(2);
-        assert!(queue.is_correct());
-        queue.push(3);
-        assert!(queue.is_correct());
-        queue.push(4);
-        assert!(queue.is_correct());
-        queue.push(5);
-        assert!(queue.is_correct());
-        queue.push(6);
-        assert!(queue.is_correct());
-        queue.push(7);
-        assert!(queue.is_correct());
-        queue.push(8);
-        assert!(queue.is_correct());
-        queue.push(9);
-        assert!(queue.is_correct());
-        queue.push(10);
-        assert!(queue.is_correct());
+        let mut j: u8 = 1;
+        while j < 11 {
+            queue.push(j);
+            assert!(queue.is_correct());
+            j += 1;
+        }
         queue.print_tree();
 
         queue.remove(2);
         assert!(queue.is_correct());
         queue.print_tree();
-        queue.remove(5);
-        assert!(queue.is_correct());
-        queue.print_tree();
-        queue.remove(7);
-        assert!(queue.is_correct());
-        queue.print_tree();
 
         assert_eq!(queue.find(1), true);
-        assert_eq!(queue.find(5), false);
-        assert_eq!(queue.find(7), false);
-        assert_eq!(queue.find(11), false);
+        assert_eq!(queue.find(2), false);
+    }
+
+    #[test]
+    fn insert_1_to_10_to_remove10() {
+        let mut queue = Btree::new();
+
+        let mut j: u8 = 1;
+        while j < 11 {
+            queue.push(j);
+            assert!(queue.is_correct());
+            j += 1;
+        }
+        queue.print_tree();
+
+        queue.remove(10);
+        queue.print_tree();
+        assert!(queue.is_correct());
+        queue.remove(9);
+        queue.print_tree();
+        assert!(queue.is_correct());
+
+        assert_eq!(queue.find(1), true);
+        assert_eq!(queue.find(5), true);
+        assert_eq!(queue.find(9), false);
+        assert_eq!(queue.find(10), false);
     }
 
     #[test]
     fn insert_1_to_10_to_remove_internal() {
         let mut queue = Btree::new();
 
-        queue.push(1);
-        assert!(queue.is_correct());
-        queue.push(2);
-        assert!(queue.is_correct());
-        queue.push(3);
-        assert!(queue.is_correct());
-        queue.push(4);
-        assert!(queue.is_correct());
-        queue.push(5);
-        assert!(queue.is_correct());
-        queue.push(6);
-        assert!(queue.is_correct());
-        queue.push(7);
-        assert!(queue.is_correct());
-        queue.push(8);
-        assert!(queue.is_correct());
-        queue.push(9);
-        assert!(queue.is_correct());
-        queue.push(10);
-        assert!(queue.is_correct());
+        let mut j: u8 = 1;
+        while j < 11 {
+            queue.push(j);
+            assert!(queue.is_correct());
+            j += 1;
+        }
         queue.print_tree();
 
         queue.remove(8);
