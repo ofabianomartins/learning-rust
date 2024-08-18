@@ -43,7 +43,6 @@ impl Node {
     pub fn find_key(&mut self, value: BtreeValue) -> usize {
         let mut i: usize = 0;
         while i < self.n_keys && value > self.keys[i]  {
-            println!("find_key {} - {}", value, self.keys[i]);
             i += 1;
         }
 
@@ -72,9 +71,7 @@ impl Node {
         let i: usize = self.find_key(value) ;
 
         if i == self.n_keys && self.is_leaf {
-            let aux = self.keys[self.n_keys - 1];
-            self.remove(aux, level + 1);
-            return aux;
+            return self.keys[self.n_keys - 1];
         } 
 
         if let Some(node) = &self.pointers[i] {
@@ -90,9 +87,7 @@ impl Node {
         let i: usize = self.find_key(value) ;
 
         if i == 0 && self.is_leaf {
-            let aux = self.keys[0];
-            self.remove(aux, level);
-            return aux;
+            return self.keys[0];
         } 
 
         if let Some(node) = &self.pointers[i] {
@@ -106,7 +101,6 @@ impl Node {
 
     pub fn merge_child_node(&mut self, left: usize, right: usize, key: usize) {
         println!("Merge coluna {} com {} e chave {}", left, right, self.keys[key]);
-
 
         if let Some(node) = &self.pointers[left] {
             let mut child = node.as_ref().borrow_mut();
@@ -133,11 +127,93 @@ impl Node {
 
                 // join n_keys
                 child.n_keys += right_child.n_keys;
-                child.remove(self.keys[key], 0);
+                // child.remove(self.keys[key], 0);
             }
         }
 
         self.remove_key(key);
+    }
+
+    pub fn move_right_child_element(&mut self, child_key: usize) {
+        let parent_value = self.keys[child_key];
+
+        if let Some(node) = &self.pointers[child_key] {
+            let mut child = node.as_ref().borrow_mut();
+
+            let key = child.n_keys - 1;
+            let new_value = child.keys[key];
+
+            self.keys[child_key] = new_value;
+
+            if let Some(node) = &self.pointers[child_key + 1] {
+                let mut right_child = node.as_ref().borrow_mut();
+
+                right_child.print_tree();
+
+                let mut j: usize = key + 1;
+                while j > 0{
+                    right_child.keys[j] = right_child.keys[j - 1];
+                    j -= 1;
+                }
+
+                j = key + 2;
+                while j > 0 {
+                    if let Some(pointer_new_node) = &right_child.pointers[j - 1] {
+                        right_child.pointers[j] = Some(pointer_new_node.clone());
+                    }
+                    j -= 1;
+                }
+
+                right_child.keys[0] =  parent_value;
+
+                if let Some(pointer_new_node) = &child.pointers[key + 1] {
+                    right_child.pointers[0] = Some(pointer_new_node.clone());
+                }
+                right_child.n_keys += 1;
+
+                child.n_keys -= 1;
+            }
+        }
+    }
+
+    pub fn move_left_child_element(&mut self, child_key: usize) {
+        let parent_value = self.keys[child_key];
+
+        if let Some(node) = &self.pointers[child_key] {
+            let mut child = node.as_ref().borrow_mut();
+
+            self.keys[child_key] = child.keys[0];
+
+            if let Some(node) = &self.pointers[child_key - 1] {
+                let mut left_child = node.as_ref().borrow_mut();
+
+                let j = left_child.n_keys;
+
+                left_child.keys[j] = parent_value;
+
+                if let Some(pointer_new_node) = &child.pointers[0] {
+                    left_child.pointers[j + 1] = Some(pointer_new_node.clone());
+                }
+
+                left_child.n_keys += 1;
+            }
+
+            let mut j: usize = 0;
+            while j < child.n_keys {
+                child.keys[j] = child.keys[j + 1];
+                j += 1;
+            }
+
+            j = 0;
+            while j < self.n_keys + 1 {
+                if let Some(pointer_new_node) = &child.pointers[j + 1] {
+                    child.pointers[j] = Some(pointer_new_node.clone());
+                }
+                j += 1;
+            }
+
+            child.n_keys -= 1;
+        }
     }
 
     pub fn split_node(&mut self, pos: usize) {
@@ -229,7 +305,7 @@ impl Node {
     }
 
     pub fn push_nonfull(&mut self, value: BtreeValue) {
-        println!("push_nonfull {}", value);
+        // println!("push_nonfull {}", value);
         if self.is_leaf {
             let mut j: usize = self.n_keys;
             while j > 0  && value < self.keys[j - 1] {
@@ -268,7 +344,11 @@ impl Node {
         }
     }
 
-    pub fn remove(&mut self, value: BtreeValue, level: u8) -> bool {
+    pub fn remove(&mut self, value: BtreeValue) -> bool {
+        return self.remove_internal(value, 0);
+    }
+
+    pub fn remove_internal(&mut self, value: BtreeValue, level: u8) -> bool {
         let i: usize = self.find_key(value);
         println!("remove {} level {} key {} n_keys {} leaf {}", value, level, i, self.n_keys, self.is_leaf);
 
@@ -313,8 +393,14 @@ impl Node {
             let mut left_child_min: bool = false;
             let mut right_child_min: bool = false;
 
+            let mut merge_left_child: bool = false;
+            let mut merge_right_child: bool = false;
+
             if let Some(node) = &self.pointers[i] {
                 let mut child = node.as_ref().borrow_mut();
+
+                println!("Descendo!");
+                child.remove_internal(value, level + 1);
 
                 if child.n_keys <= LEAF_MIN_CAPACITY {
                     if i < self.n_keys {
@@ -322,16 +408,7 @@ impl Node {
                             let mut right_child = node.as_ref().borrow_mut();
 
                             if right_child.n_keys > LEAF_MIN_CAPACITY {
-                                println!("Case 3-a right");
-
-                                let new_value = right_child.find_next(value, level + 1);
-
-                                child.push_nonfull(self.keys[i]);
-                                self.keys[i] = new_value;
-
-                                child.remove(value, level + 1);
-                                right_child.remove(new_value, level + 1);
-                                return true;
+                                merge_left_child = true;
                             } else {
                                 right_child_min = true;
                             }
@@ -343,57 +420,62 @@ impl Node {
                             let mut left_child = node.as_ref().borrow_mut();
 
                             if left_child.n_keys > LEAF_MIN_CAPACITY {
-                                println!("Case 3-a left");
-
-                                let new_value = left_child.find_previous(value, level + 1);
-
-                                println!("new_values {} - {}", new_value, self.keys[i - 1]);
-                                child.push_nonfull(self.keys[i - 1]);
-                                self.keys[i - 1] = new_value;
-
-                                child.remove(value, level + 1);
-                                left_child.remove(new_value, level + 1);
-                                return true;
+                                merge_right_child = true;
                             } else {
                                 left_child_min = true;
                             }
                         } 
                     }
-                } else {
-                    println!("Caso recursivo!");
-                    return child.remove(value, level + 1);
                 }
+            }
+
+            if merge_left_child {
+                println!("Case 3-a right");
+
+                self.move_left_child_element(i);
+                return true;
+            }
+
+            if merge_right_child {
+                println!("Case 3-a left");
+
+                self.move_right_child_element(i-1);
+                return true;
             }
 
             if left_child_min || right_child_min {
                 if left_child_min {
                     println!("Caso 3b left!");
+
+                    self.merge_child_node(i - 1, i, i - 1);
+                    let index = if i == self.n_keys { i - 1 } else { i };
+
+                    if let Some(node) = &self.pointers[index] {
+                        let mut child = node.as_ref().borrow_mut();
+
+                        child.remove_internal(value, level + 1);
+                    }
+                    self.print_tree();
+                }
+
+                if right_child_min && !left_child_min {
+                    println!("Caso 3b right!");
                     if i == self.n_keys {
-                        self.merge_child_node(i - 1, i, i - 1);
+                        self.merge_child_node(i, i+1, i - 1);
 
                         if let Some(node) = &self.pointers[i - 1] {
                             let mut child = node.as_ref().borrow_mut();
 
-                            child.remove(value, level + 1);
+                            child.remove_internal(value, level + 1);
                         }
                     } else {
-                        self.merge_child_node(i - 1, i, i);
+                        self.merge_child_node(i, i + 1, i);
 
                         if let Some(node) = &self.pointers[i] {
                             let mut child = node.as_ref().borrow_mut();
 
-                            child.remove(value, level + 1);
+                            child.remove_internal(value, level + 1);
                         }
-                    }
-                }
-
-                if right_child_min {
-                    println!("Caso 3b!");
-                    self.merge_child_node(i, i + 1, i);
-                    if let Some(node) = &self.pointers[i] {
-                        let mut child = node.as_ref().borrow_mut();
-
-                        child.remove(value, level + 1);
                     }
                 }
             }
@@ -401,8 +483,6 @@ impl Node {
 
         return false;
     }
-
-
 
     pub fn print_tree(&self) {
         let mut queue: VecDeque<Link> = VecDeque::new();
@@ -432,5 +512,48 @@ impl Node {
         }
 
         println!("end");
+    }
+
+    pub fn is_correct(&self) -> bool {
+        let mut j = 0;
+
+        if !self.is_leaf {
+            j = 0;
+            while j < self.n_keys + 1{
+                if let Some(node) = &self.pointers[j] {
+                    let actual_node = node.as_ref().borrow_mut();
+
+                    if !actual_node.is_correct() {
+                        println!("Sub-árvore com erros {}", actual_node);
+                        return false;
+                    }
+                }
+                j += 1;
+            }
+        }
+
+        if self.n_keys > 1 {
+            while j < self.n_keys - 1 {
+                if !(self.keys[j] < self.keys[j+1]) {
+                    println!("Nó desordenado: {}", self);
+                    return false;
+                }
+                j += 1;
+            }
+        }
+
+        if !self.is_root {
+            if self.n_keys < LEAF_MIN_CAPACITY {
+                println!("Nó sem o mínimo de elementos: {}", self);
+                return false;
+            }
+        }
+
+        if self.n_keys > NODE_CAPACITY {
+            println!("Nó com mais elemento que o necessário: {}", self);
+            return false;
+        }
+
+        return true;
     }
 }
