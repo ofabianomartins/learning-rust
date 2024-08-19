@@ -16,6 +16,16 @@ impl Btree {
         Btree { root: None }
     }
 
+    pub fn find(&mut self, value: u8) -> bool {
+        if let Some(node) = &self.root {
+            let mut internal_node = node.borrow_mut();
+
+            return internal_node.find(value, 0)
+        }
+
+        return false;
+    }
+
     pub fn push(&mut self, value: u8) {
         println!("Inserting {}", value);
 
@@ -38,23 +48,24 @@ impl Btree {
         }
     }
 
-    pub fn find(&mut self, value: u8) -> bool {
-        if let Some(node) = &self.root {
-            let mut internal_node = node.borrow_mut();
-
-            return internal_node.find(value, 0)
-        }
-
-        return false;
-    }
-
     pub fn remove(&mut self, value: u8) -> bool {
         println!("Removing {}", value);
+        let mut root_empty: bool = false;
 
         if let Some(node) = &self.root {
             let mut internal_node = node.borrow_mut();
 
-            return internal_node.remove(value)
+            internal_node.remove(value);
+
+            if internal_node.n_keys == 0 {
+                root_empty = true;
+            }
+        }
+
+        if root_empty {
+            self.root = <Option<Rc<RefCell<Node>>> as Clone>::clone(
+                            &<Option<Rc<RefCell<Node>>> as Clone>::clone(&self.root).unwrap().as_ref().borrow().pointers[0]
+                        );
         }
 
         return false;
@@ -66,16 +77,18 @@ impl Btree {
         queue.push_back(self.root.clone());
         while !queue.is_empty() {
             if let Some(node) = &queue.pop_front() {
-                let actual_node = node.as_ref().expect("REASON").borrow_mut();
+                if let Some(actual_node_option) = node.as_ref() {
+                    let actual_node = actual_node_option.borrow_mut();
 
-                let mut j = 0;
-                while j <= actual_node.n_keys {
-                    if let Some(new_pointer_node) = &actual_node.pointers[j] {
-                        queue.push_back(Some(new_pointer_node.clone())); 
-                    } 
-                    j += 1;
+                    let mut j = 0;
+                    while j <= actual_node.n_keys {
+                        if let Some(new_pointer_node) = &actual_node.pointers[j] {
+                            queue.push_back(Some(new_pointer_node.clone())); 
+                        } 
+                        j += 1;
+                    }
+                    print!("{}|", actual_node);
                 }
-                print!("{}|", actual_node);
             } 
         }
 
@@ -84,9 +97,19 @@ impl Btree {
 
     pub fn is_correct(&mut self) -> bool {
         if let Some(node) = &self.root {
-            let mut internal_node = node.borrow_mut();
+            let internal_node = node.borrow_mut();
 
             return internal_node.is_correct()
+        }
+
+        return true;
+    }
+
+    pub fn is_empty(&mut self) -> bool {
+        if let Some(node) = &self.root {
+            let internal_node = node.borrow_mut();
+
+            return internal_node.n_keys == 0;
         }
 
         return true;
@@ -283,7 +306,7 @@ pub mod tests {
     }
 
     #[test]
-    fn insert_1_to_10_and_remove_32() {
+    fn insert_1_to_26_and_remove_32() {
         let mut queue = Btree::new();
 
         let mut j = 26;
@@ -308,5 +331,55 @@ pub mod tests {
         assert_eq!(queue.find(36), true);
         assert_eq!(queue.find(40), true);
         assert_eq!(queue.find(32), false);
+    }
+
+    #[test]
+    fn insert_1_to_26_and_remove_all() {
+        let mut queue = Btree::new();
+
+        let mut j = 26;
+
+        while j > 0 {
+            queue.push(j*2);
+            assert!(queue.is_correct());
+            j -= 1;
+        }
+        queue.print_tree();
+
+        j = 26;
+        while j > 0 {
+            queue.remove(j*2);
+            queue.print_tree();
+            assert_eq!(queue.find(j*2), false);
+            assert!(queue.is_correct());
+            j -= 1;
+        }
+
+        assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn insert_1_to_82_and_remove_all() {
+        let mut queue = Btree::new();
+
+        let mut j = 82;
+
+        while j > 0 {
+            queue.push(j);
+            assert!(queue.is_correct());
+            j -= 1;
+        }
+        queue.print_tree();
+
+        j = 82;
+        while j > 0 {
+            queue.remove(j);
+            queue.print_tree();
+            assert_eq!(queue.find(j*2), false);
+            assert!(queue.is_correct());
+            j -= 1;
+        }
+
+        assert!(queue.is_empty());
     }
 }
