@@ -42,14 +42,14 @@ fn main() {
                 match &line[0..1] {
                     "i" => { 
                         let value = &line[2..len];
-                        println!("Inserting {} ", value);
+                        println!("Inserting \"{}\"; ", value);
                         list.save_string(value);
                     },
                     "r" => { 
                         let value = &line[2..len];
                         match value.parse::<u32>() {
                             Ok(pos) => {
-                                println!("String at {} ", list.read_string(pos));
+                                println!("{}) {} ", pos, list.read_string(pos));
                             }
                             Err(e) => {
                                 println!("Failed to convert the string to u64: {}", e);

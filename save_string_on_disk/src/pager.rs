@@ -27,7 +27,7 @@ impl Pager {
     }
 
     pub fn write_disk(&mut self, pos: u64, buffer: &[u8; BLOCK_SIZE]) {
-        let _ = self.file.seek(SeekFrom::Start(pos * 40));
+        let _ = self.file.seek(SeekFrom::Start(pos * (BLOCK_SIZE as u64)));
         self.file.write(buffer).expect("buffer overflow");
     }
 
