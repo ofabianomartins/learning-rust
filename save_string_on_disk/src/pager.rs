@@ -13,12 +13,12 @@ impl Pager {
         Self { file }
     }
 
-    pub fn read_disk(&mut self, pos: u64) -> [u8; 40] {
-        let mut buffer = [0u8; 40];
+    pub fn read_disk(&mut self, pos: u64) -> [u8; BLOCK_SIZE] {
+        let mut buffer = [0u8; BLOCK_SIZE];
 
         // let bytes_read = self.file.read(&mut buffer)?;
         // let result = String::from_utf8_lossy(&buffer[..bytes_read]);
-        self.file.seek(SeekFrom::Start(pos * 40));
+        self.file.seek(SeekFrom::Start(pos * (BLOCK_SIZE as u64)));
         match self.file.read(&mut buffer) {
             Ok(_) => buffer,
             Err(err) => { 
@@ -28,7 +28,7 @@ impl Pager {
         }
     }
 
-    pub fn write_disk(&mut self, pos: u64, buffer: &[u8; 40]) {
+    pub fn write_disk(&mut self, pos: u64, buffer: &[u8; BLOCK_SIZE]) {
         self.file.seek(SeekFrom::Start(pos * 40));
         self.file.write(buffer).expect("buffer overflow");
     }

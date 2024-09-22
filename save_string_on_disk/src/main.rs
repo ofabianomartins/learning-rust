@@ -1,4 +1,5 @@
 pub mod pager;
+pub mod buffer;
 pub mod disk_string_list;
 
 use std::fs::OpenOptions;
@@ -6,10 +7,11 @@ use std::io;
 use std::io::Write;
 
 use pager::Pager;
+use buffer::Buffer;
 use disk_string_list::DiskStringList;
 
 fn main() {
-    let mut file = OpenOptions::new()
+    let file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -17,7 +19,8 @@ fn main() {
         .open("test.txt")
         .unwrap();
     let pager = Pager::new(file);
-    let mut list = DiskStringList::new(pager);
+    let buffer = Buffer::new(pager);
+    let mut list = DiskStringList::new(buffer);
 
     let mut stdout = io::stdout();
     let stdin = io::stdin();
@@ -43,26 +46,15 @@ fn main() {
                     },
                     "r" => { 
                         let value = &line[2..len];
-                        match value.parse::<u64>() {
+                        match value.parse::<u32>() {
                             Ok(pos) => {
-                                let mut buffer = list.read_string(pos);
-
-                                let result = String::from_utf8_lossy(&buffer);
-                                println!("String at {} ", result);
+                                println!("String at {} ", list.read_string(pos));
                             }
                             Err(e) => {
                                 println!("Failed to convert the string to u64: {}", e);
                             }
                         }
                     },
-                    "l" => {
-                        for pos in 0..list.size {
-                            let mut buffer = list.read_string(pos);
-
-                            let result = String::from_utf8_lossy(&buffer);
-                            println!("{}: {} ", pos, result);
-                        }
-                    }
                     value => { println!("command not found {} ", value); }
                 }
             }
