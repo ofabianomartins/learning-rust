@@ -17,6 +17,10 @@ impl DiskStringList {
     pub fn read_string(&mut self, pos: u32) -> &str {
         return self.buffer.read_from_buffer(pos);
     }
+
+    pub fn load_file(&mut self) {
+        self.buffer.read_from_file();
+    }
 }
 
 

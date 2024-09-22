@@ -9,7 +9,7 @@ pub struct Buffer {
     pub total_of_pages: u64,
     pub number_of_page: u64,
     pub buffer: [u8; BLOCK_SIZE],
-    pub buffer_length: u64,
+    pub buffer_length: u32,
     pub pager: Pager,
 }
 
@@ -19,19 +19,39 @@ impl Buffer {
             buffer: [0u8; BLOCK_SIZE], 
             total_of_pages: 0, 
             number_of_page: 0, 
-            buffer_length: 0,
+            buffer_length: 4,
             pager 
         }
     }
 
+    pub fn read_from_file(&mut self) {
+        self.buffer = self.pager.read_disk(0);
+
+        let mut buf = [0u8; 4];
+        buf[..4].copy_from_slice(&self.buffer[0..4]);
+        let number_of_words = u32::from_be_bytes(buf);
+
+        let mut word_pos: u32 = 4;
+
+        for _iter in 0..number_of_words {
+            let mut buf = [0u8; 4];
+            buf[..4].copy_from_slice(&self.buffer[(word_pos as usize)..((word_pos + 4u32) as usize)]);
+            let index_of_word = u32::from_be_bytes(buf);
+
+            word_pos += 4u32 + index_of_word;
+        }
+
+        self.buffer_length = word_pos;
+    }
+
     pub fn save_on_buffer(&mut self, data: &str) {
-        let len: u64 = data.len() as u64;
+        let len: u32 = data.len() as u32;
         let index = self.buffer_length;
 
-        self.buffer[(index as usize)..((index + 8) as usize)].copy_from_slice(&len.to_be_bytes());
-        self.buffer[((index + 8) as usize)..((index + len + 8) as usize)].copy_from_slice(data.as_bytes());
+        self.buffer[(index as usize)..((index + 4) as usize)].copy_from_slice(&len.to_be_bytes());
+        self.buffer[((index + 4) as usize)..((index + len + 4) as usize)].copy_from_slice(data.as_bytes());
 
-        self.buffer_length += 8 + len;
+        self.buffer_length += 4u32 + len;
 
         let mut buf = [0u8; 4];
         buf[..4].copy_from_slice(&self.buffer[0..4]);
@@ -46,20 +66,22 @@ impl Buffer {
         buf[..4].copy_from_slice(&self.buffer[0..4]);
         let number_of_words = u32::from_be_bytes(buf);
 
-        let mut word_pos: u64 = 4;
-        
+        let mut word_pos: u32 = 4;
+
         for iter in 0..number_of_words {
-            let mut buf = [0u8; 8];
-            buf[..8].copy_from_slice(&self.buffer[(word_pos as usize)..((word_pos + 8) as usize)]);
-            let index_of_word = u64::from_be_bytes(buf);
+            let mut buf = [0u8; 4];
+            buf[..4].copy_from_slice(&self.buffer[(word_pos as usize)..((word_pos + 4) as usize)]);
+            let index_of_word = u32::from_be_bytes(buf);
+
+            word_pos += 4u32;
             let s = std::str::from_utf8(
-                &self.buffer[((word_pos + 8) as usize)..((word_pos + index_of_word + 8) as usize)]
+                &self.buffer[(word_pos as usize)..((word_pos + index_of_word) as usize)]
             ).unwrap();
 
-            if (iter == pos) {
+            if iter == pos {
                 return s;
             } else {
-                word_pos += 8u64 + word_pos + index_of_word;
+                word_pos += index_of_word;
             }
         }
 

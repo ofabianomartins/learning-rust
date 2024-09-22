@@ -15,12 +15,13 @@ fn main() {
         .read(true)
         .write(true)
         .create(true)
-        .truncate(true)
         .open("test.txt")
         .unwrap();
     let pager = Pager::new(file);
     let buffer = Buffer::new(pager);
     let mut list = DiskStringList::new(buffer);
+
+    list.load_file();
 
     let mut stdout = io::stdout();
     let stdin = io::stdin();
