@@ -64,6 +64,18 @@ mod tests {
     }
 
     #[test]
+    fn test_insert_two_value_list() {
+        let mut root: Box<Node> = new();
+        insert(&mut root, 10);
+        insert(&mut root, 12);
+        insert(&mut root, 14);
+        assert_eq!(
+            root,
+            Box::new(Node::Elem(10, Box::new(Node::Elem(12, Box::new(Node::Elem(14, Box::new(Node::Nil)))))))
+        );
+    }
+
+    #[test]
     fn test_remove_from_empty() {
         let mut root: Box<Node> = new();
         remove(&mut root);
